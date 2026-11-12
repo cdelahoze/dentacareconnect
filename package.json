@@ -4,21 +4,25 @@
   "description": "Backend API Server for DentaCare Connect platform",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/server.js",
-    "lint": "eslint src/**/*.ts"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "keywords": [
     "nodejs",
     "express",
     "typescript",
+    "prisma",
     "dentacare",
     "api"
   ],
   "author": "Cristian Moisés De La Hoz Escorcia",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -30,7 +34,9 @@
     "@types/express": "^4.17.21",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.11.24",
-    "ts-node-dev": "^2.0.0",
+    "nodemon": "^3.1.7",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }

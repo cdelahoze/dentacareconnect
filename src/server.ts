@@ -1,11 +1,10 @@
 import app from './app';
-import dotenv from 'dotenv';
+import { env } from './config/env';
 
-dotenv.config();
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`DentaCare Connect Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+app.listen(env.PORT, () => {
+  console.log(`=================================`);
+  console.log(`🚀 DentaCare Connect Server running on port ${env.PORT}`);
+  console.log(`🌍 Environment: ${env.NODE_ENV}`);
+  console.log(`🔗 Allowed Origin: ${env.CLIENT_URL}`);
+  console.log(`=================================`);
 });
