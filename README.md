@@ -19,10 +19,20 @@ Each team member adds one favorite quote here.
 
 
 # 1. Install Prisma Client
-npm install @prisma/client
+
+>If running `npm install prisma @prisma/client` resulted in the installation of Prisma version 7 or higher (which changed how `PrismaClient` is exported or requires a `prisma.config.ts` file), please install a stable version 5 or 6 that matches your `package.json`:
+
+npm install prisma@^5.22.0 @prisma/client@^5.22.0
+
 
 # 2. Install Prisma CLI, Nodemon, and ts-node as development dependencies
 npm install -D prisma nodemon ts-node
 
 # 3. Initialize Prisma
 npx prisma init
+
+# 4. Important note if you installed Prisma 7+
+
+If you have installed Prisma 7 or higher, you may encounter changes in how `PrismaClient` is exported or the requirement of a `prisma.config.ts` file. To avoid compatibility issues, it is recommended to use Prisma version 5 or 6 as specified above.
+
+npx prisma generate
