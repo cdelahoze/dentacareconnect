@@ -6,6 +6,8 @@ import { env } from './config/env';
 import healthRouter from './routes/health.routes';
 import patientRouter from './routes/patient.routes';
 import { notFoundHandler, errorHandler } from './middlewares/error.middleware';
+import procedureRouter from './routes/procedure.routes';
+
 
 const app: Application = express();
 
@@ -26,9 +28,11 @@ app.use(express.urlencoded({ extended: true }));
 // API Base Routes
 app.use('/api/health', healthRouter);
 app.use('/api/patients', patientRouter);
+app.use('/api/procedures', procedureRouter);
 
 // Error Handling Middlewares (Must be registered after all routes)
 app.use(notFoundHandler);
 app.use(errorHandler);
+
 
 export default app;

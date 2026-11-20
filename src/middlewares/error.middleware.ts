@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { Prisma } from '@prisma/client';
 import { ApiError } from '../utils/ApiError';
 import { env } from '../config/env';
 
@@ -11,7 +12,7 @@ export const notFoundHandler = (req: Request, res: Response, next: NextFunction)
 };
 
 /**
- * Global centralized error handling middleware
+ * Global centralized error handling middleware (Custom ApiError, Prisma ORM & Syntax errors)
  */
 export const errorHandler = (
   err: Error | ApiError,
@@ -26,6 +27,27 @@ export const errorHandler = (
   if (err instanceof ApiError) {
     statusCode = err.statusCode;
     message = err.message;
+  } else if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    switch (err.code) {
+      case 'P2002':
+        statusCode = 409;
+        message = 'A record with this unique field already exists.';
+        break;
+      case 'P2003':
+        statusCode = 400;
+        message = 'Invalid relational reference (foreign key constraint failed).';
+        break;
+      case 'P2025':
+        statusCode = 404;
+        message = 'Requested record was not found in the database.';
+        break;
+      default:
+        statusCode = 400;
+        message = `Database operation error (${err.code}).`;
+    }
+  } else if (err instanceof Prisma.PrismaClientValidationError) {
+    statusCode = 400;
+    message = 'Invalid data format or missing fields for database query.';
   } else if (err.name === 'SyntaxError' && 'body' in err) {
     statusCode = 400;
     message = 'Invalid JSON payload format.';
