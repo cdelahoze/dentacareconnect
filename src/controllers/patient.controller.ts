@@ -65,9 +65,9 @@ export const getPatientById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      throw new ApiError(400, 'Invalid patient ID format. Must be a numeric integer.');
+    const id = req.params.id?.trim();
+    if (!id) {
+      throw new ApiError(400, 'Invalid patient ID.');
     }
 
     const patient = await PatientService.getPatientById(id);
@@ -91,9 +91,9 @@ export const updatePatient = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      throw new ApiError(400, 'Invalid patient ID format. Must be a numeric integer.');
+    const id = req.params.id?.trim();
+    if (!id) {
+      throw new ApiError(400, 'Invalid patient ID.');
     }
 
     const updatedPatient = await PatientService.updatePatient(id, req.body);
