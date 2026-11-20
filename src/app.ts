@@ -5,9 +5,9 @@ import morgan from 'morgan';
 import { env } from './config/env';
 import healthRouter from './routes/health.routes';
 import patientRouter from './routes/patient.routes';
-import { notFoundHandler, errorHandler } from './middlewares/error.middleware';
 import procedureRouter from './routes/procedure.routes';
-
+import controlEngineRouter from './routes/controlEngine.routes';
+import { notFoundHandler, errorHandler } from './middlewares/error.middleware';
 
 const app: Application = express();
 
@@ -29,10 +29,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/health', healthRouter);
 app.use('/api/patients', patientRouter);
 app.use('/api/procedures', procedureRouter);
+app.use('/api/control-engine', controlEngineRouter);
 
 // Error Handling Middlewares (Must be registered after all routes)
 app.use(notFoundHandler);
 app.use(errorHandler);
-
 
 export default app;
