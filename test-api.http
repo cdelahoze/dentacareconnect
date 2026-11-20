@@ -1,0 +1,36 @@
+### Prueba 1: Enviar datos inválidos (Debe responder 400 Bad Request)
+POST http://localhost:5000/api/patients
+Content-Type: application/json
+
+{
+  "firstName": "A",
+  "lastName": "Gómez",
+  "email": "correo-invalido"
+}
+
+### Prueba 2: Crear un paciente válido (Debe responder 201 Created)
+POST http://localhost:5000/api/patients
+Content-Type: application/json
+
+{
+  "firstName": "Laura",
+  "lastName": "Gómez",
+  "documentId": "1020304050",
+  "email": "laura.gomez@example.com",
+  "phone": "+573001234567",
+  "whatsappNumber": "+573001234567"
+}
+
+### Prueba 3: Registrar un procedimiento dental para ese paciente (Debe responder 201 Created):
+
+POST http://localhost:5000/api/procedures
+Content-Type: application/json
+
+{
+  "patientId": 1,
+  "procedureName": "Extracción Tercero Molar",
+  "procedureCode": "D7210",
+  "dentistName": "Dra. Sofía Martínez",
+  "followUpDays": 7,
+  "notes": "Retiro de puntos y evaluación de cicatrización"
+}
