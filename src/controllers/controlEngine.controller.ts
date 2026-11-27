@@ -122,3 +122,49 @@ export const triggerControlEngineRun = async (
     next(error);
   }
 };
+
+/**
+ * POST /api/control-engine/dispatch-emails
+ * Manually trigger dispatch of pending EMAIL channel reminders.
+ */
+export const triggerEmailDispatch = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const referenceDate = parseOptionalDate(
+      body.referenceDate ?? req.query.referenceDate,
+      'referenceDate'
+    );
+    const rawDryRun = body.dryRun ?? req.query.dryRun;
+    const dryRun = rawDryRun === true || rawDryRun === 'true';
+
+    const rawLimit = body.limit ?? req.query.limit;
+    let limit: number | undefined;
+    if (rawLimit !== undefined && rawLimit !== null && rawLimit !== '') {
+      const parsed = typeof rawLimit === 'number' ? rawLimit : Number.parseInt(String(rawLimit), 10);
+      if (Number.isNaN(parsed) || parsed < 1 || parsed > 1000) {
+        throw new ApiError(400, 'limit must be an integer between 1 and 1000.');
+      }
+      limit = parsed;
+    }
+
+    const result = await ControlEngineService.dispatchPendingEmailReminders({
+      referenceDate,
+      dryRun,
+      limit,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: dryRun
+        ? 'Email dispatch dry-run completed successfully.'
+        : 'Pending email reminders dispatched.',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

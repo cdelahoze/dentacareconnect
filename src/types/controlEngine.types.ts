@@ -4,6 +4,7 @@ import {
   ReminderStatus,
   TreatmentStatus,
 } from '@prisma/client';
+import type { EmailDispatchBatchResult } from './email.types';
 
 export type FollowUpUrgency = 'UPCOMING' | 'DUE_TODAY' | 'OVERDUE';
 
@@ -136,6 +137,7 @@ export interface ControlEngineRunResult {
   dryRun: boolean;
   summary: ControlEngineSummaryCounts;
   queue: FollowUpQueueEntry[];
+  emailDispatch: EmailDispatchBatchResult;
 }
 
 export interface QueueQueryFilters {
