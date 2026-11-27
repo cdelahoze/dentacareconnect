@@ -58,8 +58,8 @@ body('phone')
 
 export const updatePatientValidator = [
   param('id')
-    .isInt({ min: 1 })
-    .withMessage('Patient ID in URL must be a positive integer.'),
+    .isUUID()
+    .withMessage('Patient ID in URL must be a valid UUID.'),
 
   body('firstName')
     .optional()
@@ -117,8 +117,8 @@ export const updatePatientValidator = [
 
 export const patientIdParamValidator = [
   param('id')
-    .isInt({ min: 1 })
-    .withMessage('Patient ID in URL must be a positive integer.'),
+    .isUUID()
+    .withMessage('Patient ID in URL must be a valid UUID.'),
 ];
 
 export const listPatientsQueryValidator = [

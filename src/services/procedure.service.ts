@@ -1,9 +1,9 @@
+import { Prisma, TreatmentStatus } from '@prisma/client';
 import prisma from '../config/prisma';
 import { ApiError } from '../utils/ApiError';
-import { Prisma, ProcedureStatus } from '@prisma/client';
 
 export interface CreateProcedureInput {
-  patientId: number;
+  patientId: string;
   procedureName: string;
   procedureCode?: string;
   dentistName?: string;
@@ -19,127 +19,124 @@ export interface UpdateProcedureInput {
   procedureDate?: string;
   followUpDays?: number;
   nextControlDate?: string;
-  status?: ProcedureStatus;
+  status?: TreatmentStatus;
   notes?: string;
 }
 
+const procedureInclude = {
+  patient: true,
+  procedure: true,
+  performedBy: true,
+  appointments: {
+    orderBy: { scheduledAt: 'desc' as const },
+  },
+  reminders: {
+    orderBy: { createdAt: 'desc' as const },
+  },
+} satisfies Prisma.PatientProcedureInclude;
+
+function addLegacyProcedureFields<T extends {
+  procedure: { name: string; code: string | null; defaultFollowUpDays: number };
+  performedBy: { firstName: string; lastName: string } | null;
+  followUpDueDate: Date;
+}>(record: T) {
+  return {
+    ...record,
+    procedureName: record.procedure.name,
+    procedureCode: record.procedure.code,
+    followUpDays: record.procedure.defaultFollowUpDays,
+    nextControlDate: record.followUpDueDate,
+    dentistName: record.performedBy
+      ? `${record.performedBy.firstName} ${record.performedBy.lastName}`
+      : null,
+  };
+}
+
 export class ProcedureService {
-  /**
-   * Helper to calculate target follow-up control date from procedure date + followUpDays
-   */
   private static calculateNextControlDate(baseDate: Date, followUpDays: number): Date {
     const targetDate = new Date(baseDate);
     targetDate.setDate(targetDate.getDate() + followUpDays);
     return targetDate;
   }
 
-  /**
-   * Log a new dental procedure for a patient and automatically calculate mandatory follow-up date
-   */
   static async createProcedure(data: CreateProcedureInput) {
-    // Verify patient exists and is active
-    const patient = await prisma.patient.findUnique({
-      where: { id: data.patientId },
-    });
+    const patient = await prisma.patient.findUnique({ where: { id: data.patientId } });
 
     if (!patient) {
       throw new ApiError(404, `Patient with ID ${data.patientId} not found.`);
     }
-
     if (!patient.isActive) {
       throw new ApiError(400, `Cannot log procedure for inactive patient (ID ${data.patientId}).`);
     }
 
-    const procDate = data.procedureDate ? new Date(data.procedureDate) : new Date();
-    if (isNaN(procDate.getTime())) {
+    const procedureDate = data.procedureDate ? new Date(data.procedureDate) : new Date();
+    if (Number.isNaN(procedureDate.getTime())) {
       throw new ApiError(400, 'Invalid procedureDate format. Use ISO-8601 date string.');
     }
 
     const followUpDays = Number(data.followUpDays);
     if (!Number.isInteger(followUpDays) || followUpDays < 1) {
-      throw new ApiError(400, 'followUpDays must be a positive integer (e.g., 7, 15, 30).');
+      throw new ApiError(400, 'followUpDays must be a positive integer.');
     }
 
-    const nextControlDate = this.calculateNextControlDate(procDate, followUpDays);
+    const procedureName = data.procedureName.trim();
+    const procedureCode = data.procedureCode?.trim() || null;
+    const catalogProcedure =
+      (await prisma.procedure.findUnique({ where: { name: procedureName } })) ??
+      (procedureCode
+        ? await prisma.procedure.findUnique({ where: { code: procedureCode } })
+        : null) ??
+      (await prisma.procedure.create({
+        data: {
+          name: procedureName,
+          code: procedureCode,
+          defaultFollowUpDays: followUpDays,
+        },
+      }));
 
-    return await prisma.procedure.create({
+    const record = await prisma.patientProcedure.create({
       data: {
-        patientId: data.patientId,
-        procedureName: data.procedureName.trim(),
-        procedureCode: data.procedureCode?.trim() || null,
-        dentistName: data.dentistName?.trim() || null,
-        procedureDate: procDate,
-        followUpDays,
-        nextControlDate,
-        status: ProcedureStatus.PENDING,
+        patientId: patient.id,
+        procedureId: catalogProcedure.id,
+        procedureDate,
+        followUpDueDate: this.calculateNextControlDate(procedureDate, followUpDays),
+        status: TreatmentStatus.PENDING_FOLLOWUP,
         notes: data.notes?.trim() || null,
       },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
+      include: procedureInclude,
     });
+
+    return addLegacyProcedureFields(record);
   }
 
-  /**
-   * Retrieve all logged procedures with optional filters (patientId, status, dueBefore)
-   */
   static async getAllProcedures(filters?: {
-    patientId?: number;
-    status?: ProcedureStatus;
+    patientId?: string;
+    status?: TreatmentStatus;
     dueBefore?: string;
     page?: number;
     limit?: number;
   }) {
     const page = filters?.page || 1;
     const limit = filters?.limit || 20;
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.ProcedureWhereInput = {
+    const where: Prisma.PatientProcedureWhereInput = {
       ...(filters?.patientId && { patientId: filters.patientId }),
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.dueBefore && {
-        nextControlDate: {
-          lte: new Date(filters.dueBefore),
-        },
-      }),
+      ...(filters?.dueBefore && { followUpDueDate: { lte: new Date(filters.dueBefore) } }),
     };
 
     const [procedures, total] = await Promise.all([
-      prisma.procedure.findMany({
+      prisma.patientProcedure.findMany({
         where,
-        skip,
+        skip: (page - 1) * limit,
         take: limit,
-        orderBy: { nextControlDate: 'asc' },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              whatsappNumber: true,
-            },
-          },
-          appointments: {
-            orderBy: { scheduledDate: 'desc' },
-            take: 1,
-          },
-        },
+        orderBy: { followUpDueDate: 'asc' },
+        include: procedureInclude,
       }),
-      prisma.procedure.count({ where }),
+      prisma.patientProcedure.count({ where }),
     ]);
 
     return {
-      data: procedures,
+      data: procedures.map(addLegacyProcedureFields),
       pagination: {
         total,
         page,
@@ -149,106 +146,78 @@ export class ProcedureService {
     };
   }
 
-  /**
-   * Retrieve a specific procedure by ID with patient and history details
-   */
-  static async getProcedureById(id: number) {
-    const procedure = await prisma.procedure.findUnique({
+  static async getProcedureById(id: string) {
+    const procedure = await prisma.patientProcedure.findUnique({
       where: { id },
-      include: {
-        patient: true,
-        appointments: {
-          orderBy: { scheduledDate: 'desc' },
-        },
-        reminders: {
-          orderBy: { createdAt: 'desc' },
-        },
-        outreachLogs: {
-          orderBy: { contactedAt: 'desc' },
-        },
-      },
+      include: procedureInclude,
     });
 
     if (!procedure) {
       throw new ApiError(404, `Procedure with ID ${id} not found.`);
     }
 
-    return procedure;
+    return addLegacyProcedureFields(procedure);
   }
 
-  /**
-   * Retrieve all procedures associated with a specific patient
-   */
-  static async getProceduresByPatientId(patientId: number) {
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-    });
-
+  static async getProceduresByPatientId(patientId: string) {
+    const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       throw new ApiError(404, `Patient with ID ${patientId} not found.`);
     }
 
-    return await prisma.procedure.findMany({
+    const procedures = await prisma.patientProcedure.findMany({
       where: { patientId },
-      orderBy: { nextControlDate: 'asc' },
-      include: {
-        appointments: true,
-        reminders: true,
-      },
+      orderBy: { followUpDueDate: 'asc' },
+      include: procedureInclude,
     });
+
+    return procedures.map(addLegacyProcedureFields);
   }
 
-  /**
-   * Update procedure details, status, or recalculate follow-up timeline
-   */
-  static async updateProcedure(id: number, data: UpdateProcedureInput) {
+  static async updateProcedure(id: string, data: UpdateProcedureInput) {
     const existing = await this.getProcedureById(id);
+    const procedureDate = data.procedureDate ? new Date(data.procedureDate) : existing.procedureDate;
 
-    const updatedProcDate = data.procedureDate
-      ? new Date(data.procedureDate)
-      : existing.procedureDate;
-
-    if (isNaN(updatedProcDate.getTime())) {
+    if (Number.isNaN(procedureDate.getTime())) {
       throw new ApiError(400, 'Invalid procedureDate format.');
     }
 
-    const updatedFollowUpDays =
+    const followUpDays =
       data.followUpDays !== undefined ? Number(data.followUpDays) : existing.followUpDays;
-
-    if (!Number.isInteger(updatedFollowUpDays) || updatedFollowUpDays < 1) {
+    if (!Number.isInteger(followUpDays) || followUpDays < 1) {
       throw new ApiError(400, 'followUpDays must be a positive integer.');
     }
 
-    // Recalculate nextControlDate if procedureDate or followUpDays changed (unless explicitly overridden)
-    let nextControlDate = existing.nextControlDate;
+    let followUpDueDate = existing.followUpDueDate;
     if (data.nextControlDate) {
-      nextControlDate = new Date(data.nextControlDate);
+      followUpDueDate = new Date(data.nextControlDate);
+      if (Number.isNaN(followUpDueDate.getTime())) {
+        throw new ApiError(400, 'Invalid nextControlDate format.');
+      }
     } else if (data.procedureDate !== undefined || data.followUpDays !== undefined) {
-      nextControlDate = this.calculateNextControlDate(updatedProcDate, updatedFollowUpDays);
+      followUpDueDate = this.calculateNextControlDate(procedureDate, followUpDays);
     }
 
-    return await prisma.procedure.update({
+    await prisma.procedure.update({
+      where: { id: existing.procedureId },
+      data: {
+        ...(data.procedureName !== undefined && { name: data.procedureName.trim() }),
+        ...(data.procedureCode !== undefined && { code: data.procedureCode?.trim() || null }),
+        ...(data.followUpDays !== undefined && { defaultFollowUpDays: followUpDays }),
+      },
+    });
+
+    const updated = await prisma.patientProcedure.update({
       where: { id },
       data: {
-        ...(data.procedureName !== undefined && { procedureName: data.procedureName.trim() }),
-        ...(data.procedureCode !== undefined && { procedureCode: data.procedureCode?.trim() || null }),
-        ...(data.dentistName !== undefined && { dentistName: data.dentistName?.trim() || null }),
-        ...(data.procedureDate !== undefined && { procedureDate: updatedProcDate }),
-        ...(data.followUpDays !== undefined && { followUpDays: updatedFollowUpDays }),
-        nextControlDate,
+        ...(data.procedureDate !== undefined && { procedureDate }),
+        followUpDueDate,
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
       },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
+      include: procedureInclude,
     });
+
+    return addLegacyProcedureFields(updated);
   }
 }

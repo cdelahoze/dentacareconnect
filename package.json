@@ -9,9 +9,11 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:reset": "prisma migrate reset",
-    "prisma:seed": "prisma db seed",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push",
+    "prisma:reset": "prisma migrate reset",
+    "prisma:seed": "ts-node prisma/seed.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -21,10 +23,13 @@
     "express",
     "typescript",
     "prisma",
-    "dentacare",
-    "api"
+    "postgresql",
+    "twilio",
+    "whatsapp",
+    "cron",
+    "dentacare"
   ],
-  "author": "Cristian Moisés De La Hoz Escorcia",
+  "author": "DentaCare Connect Team",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -34,7 +39,8 @@
     "express-validator": "^7.3.2",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
-    "node-cron": "^4.6.0"
+    "node-cron": "^4.6.0",
+    "twilio": "^6.3.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

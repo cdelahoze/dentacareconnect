@@ -9,28 +9,109 @@ Content-Type: application/json
 }
 
 ### Prueba 2: Crear un paciente válido (Debe responder 201 Created)
+# @name createPatient
 POST http://localhost:5000/api/patients
 Content-Type: application/json
 
 {
-  "firstName": "Laura",
-  "lastName": "Gómez",
-  "documentId": "1020304050",
-  "email": "laura.gomez@example.com",
-  "phone": "+573001234567",
-  "whatsappNumber": "+573001234567"
+  "firstName": "Cristian",
+  "lastName": "De La Hoz",
+  "email": "cristian.delahoz.{{$timestamp}}@example.com",
+  "phone": "+573014941963",
+  "birthDate": "1963-05-14",
+  "notes": "Paciente creada para la prueba de recordatorios."
 }
 
 ### Prueba 3: Registrar un procedimiento dental para ese paciente (Debe responder 201 Created):
-
+# @name createProcedure
 POST http://localhost:5000/api/procedures
 Content-Type: application/json
 
 {
-  "patientId": 1,
+  "patientId": "{{createPatient.response.body.$.data.id}}",
   "procedureName": "Extracción Tercero Molar",
   "procedureCode": "D7210",
   "dentistName": "Dra. Sofía Martínez",
   "followUpDays": 7,
   "notes": "Retiro de puntos y evaluación de cicatrización"
+}
+
+### =========================================================================
+### TSK-301: PRUEBAS DE RECORDATORIOS WHATSAPP Y WEBHOOK DE TWILIO
+### =========================================================================
+
+### 1. Enviar un recordatorio por WhatsApp
+# Primero ejecuta las pruebas 2 y 3. Requiere credenciales Twilio válidas en .env.
+# @name sendWhatsApp
+POST http://localhost:5000/api/reminders/whatsapp/send
+Content-Type: application/json
+
+{
+  "procedureId": "{{createProcedure.response.body.$.data.id}}"
+}
+
+### 2. Consultar todo el historial de mensajes WhatsApp enviados
+GET http://localhost:5000/api/reminders/whatsapp
+Accept: application/json
+
+### 3. Consultar historial filtrado por procedureId o patientId
+GET http://localhost:5000/api/reminders/whatsapp?procedureId={{createProcedure.response.body.$.data.id}}
+Accept: application/json
+
+### 4. Simular Webhook de Twilio (Estado: delivered)
+# Usa automáticamente el twilioSid devuelto por la petición 1.
+POST http://localhost:5000/api/reminders/whatsapp/webhook
+Content-Type: application/x-www-form-urlencoded
+
+MessageSid={{sendWhatsApp.response.body.$.data.twilioSid}}&MessageStatus=delivered
+
+### 5. Simular Webhook de Twilio (Estado: failed con mensaje de error)
+POST http://localhost:5000/api/reminders/whatsapp/webhook
+Content-Type: application/x-www-form-urlencoded
+
+MessageSid={{sendWhatsApp.response.body.$.data.twilioSid}}&MessageStatus=failed&ErrorMessage=63016+Failed+to+send+freeform+message
+
+### =========================================================================
+### TSK-302: PRUEBAS DE RECORDATORIOS SMS Y DESPACHO INTELIGENTE
+### =========================================================================
+
+### 1. Envío directo por SMS (TSK-302)
+POST http://localhost:5000/api/reminders/sms/send
+Content-Type: application/json
+
+{
+  "procedureId": "{{createProcedure.response.body.$.data.id}}"
+}
+
+### 2. Despacho inteligente con Failover automático (WhatsApp -> SMS)
+POST http://localhost:5000/api/reminders/dispatch
+Content-Type: application/json
+
+{
+  "procedureId": "{{createProcedure.response.body.$.data.id}}"
+}
+
+### 3. Consultar historial de SMS enviados
+GET http://localhost:5000/api/reminders/sms
+Accept: application/json
+
+### 4. Consultar historial de SMS filtrado por procedureId o patientId
+GET http://localhost:5000/api/reminders/sms?procedureId={{createProcedure.response.body.$.data.id}}
+Accept: application/json
+
+### =========================================================================
+### TSK-303: PRUEBAS DE PROGRAMACIÓN DEL CRON JOB
+### =========================================================================
+
+### 1. Consultar estado y programación del Cron Job
+GET http://localhost:5000/api/reminders/cron/status
+Accept: application/json
+
+### 2. Ejecutar manualmente el barrido de recordatorios ahora mismo
+# Puedes pasar opcionalmente "lookaheadDays" (ej. 10) para incluir controles de los próximos 10 días
+POST http://localhost:5000/api/reminders/cron/trigger
+Content-Type: application/json
+
+{
+  "lookaheadDays": 10
 }

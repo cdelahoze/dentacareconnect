@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ProcedureService } from '../services/procedure.service';
 import { ApiError } from '../utils/ApiError';
-import { ProcedureStatus } from '@prisma/client';
+import { TreatmentStatus } from '@prisma/client';
 
 /**
  * POST /api/procedures
@@ -22,14 +22,13 @@ export const createProcedure = async (
       );
     }
 
-    const parsedPatientId = Number(patientId);
-    if (!Number.isInteger(parsedPatientId) || parsedPatientId < 1) {
-      throw new ApiError(400, 'patientId must be a valid positive integer.');
+    if (typeof patientId !== 'string' || !patientId.trim()) {
+      throw new ApiError(400, 'patientId must be a valid UUID.');
     }
 
     const procedure = await ProcedureService.createProcedure({
       ...req.body,
-      patientId: parsedPatientId,
+      patientId: patientId.trim(),
     });
 
     res.status(201).json({
@@ -53,22 +52,22 @@ export const getAllProcedures = async (
 ): Promise<void> => {
   try {
     const patientId = req.query.patientId
-      ? parseInt(req.query.patientId as string, 10)
+      ? (req.query.patientId as string)
       : undefined;
-    const status = req.query.status as ProcedureStatus | undefined;
+    const status = req.query.status as TreatmentStatus | undefined;
     const dueBefore = req.query.dueBefore as string | undefined;
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
 
-    if (status && !Object.values(ProcedureStatus).includes(status)) {
+    if (status && !Object.values(TreatmentStatus).includes(status)) {
       throw new ApiError(
         400,
-        `Invalid status value. Allowed values: ${Object.values(ProcedureStatus).join(', ')}`
+        `Invalid status value. Allowed values: ${Object.values(TreatmentStatus).join(', ')}`
       );
     }
 
     const result = await ProcedureService.getAllProcedures({
-      patientId: patientId && !isNaN(patientId) ? patientId : undefined,
+      patientId,
       status,
       dueBefore,
       page,
@@ -94,9 +93,9 @@ export const getProcedureById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      throw new ApiError(400, 'Invalid procedure ID format. Must be a numeric integer.');
+    const id = req.params.id.trim();
+    if (!id) {
+      throw new ApiError(400, 'Invalid procedure ID format.');
     }
 
     const procedure = await ProcedureService.getProcedureById(id);
@@ -120,9 +119,9 @@ export const getProceduresByPatient = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const patientId = parseInt(req.params.patientId, 10);
-    if (isNaN(patientId)) {
-      throw new ApiError(400, 'Invalid patient ID format. Must be a numeric integer.');
+    const patientId = req.params.patientId.trim();
+    if (!patientId) {
+      throw new ApiError(400, 'Invalid patient ID format.');
     }
 
     const procedures = await ProcedureService.getProceduresByPatientId(patientId);
@@ -147,15 +146,15 @@ export const updateProcedure = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      throw new ApiError(400, 'Invalid procedure ID format. Must be a numeric integer.');
+    const id = req.params.id.trim();
+    if (!id) {
+      throw new ApiError(400, 'Invalid procedure ID format.');
     }
 
-    if (req.body.status && !Object.values(ProcedureStatus).includes(req.body.status)) {
+    if (req.body.status && !Object.values(TreatmentStatus).includes(req.body.status)) {
       throw new ApiError(
         400,
-        `Invalid status value. Allowed values: ${Object.values(ProcedureStatus).join(', ')}`
+        `Invalid status value. Allowed values: ${Object.values(TreatmentStatus).join(', ')}`
       );
     }
 

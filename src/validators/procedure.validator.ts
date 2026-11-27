@@ -1,15 +1,14 @@
 import { body, param, query } from 'express-validator';
-import { ProcedureStatus } from '@prisma/client';
+import { TreatmentStatus } from '@prisma/client';
 
-const allowedStatuses = Object.values(ProcedureStatus);
+const allowedStatuses = Object.values(TreatmentStatus);
 
 export const createProcedureValidator = [
   body('patientId')
     .notEmpty()
     .withMessage('patientId is required.')
-    .isInt({ min: 1 })
-    .withMessage('patientId must be a positive integer.')
-    .toInt(),
+    .isUUID()
+    .withMessage('patientId must be a valid UUID.'),
 
   body('procedureName')
     .trim()
@@ -51,8 +50,8 @@ export const createProcedureValidator = [
 
 export const updateProcedureValidator = [
   param('id')
-    .isInt({ min: 1 })
-    .withMessage('Procedure ID in URL must be a positive integer.'),
+    .isUUID()
+    .withMessage('Procedure ID in URL must be a valid UUID.'),
 
   body('procedureName')
     .optional()
@@ -102,21 +101,21 @@ export const updateProcedureValidator = [
 
 export const procedureIdParamValidator = [
   param('id')
-    .isInt({ min: 1 })
-    .withMessage('Procedure ID in URL must be a positive integer.'),
+    .isUUID()
+    .withMessage('Procedure ID in URL must be a valid UUID.'),
 ];
 
 export const proceduresByPatientParamValidator = [
   param('patientId')
-    .isInt({ min: 1 })
-    .withMessage('patientId in URL must be a positive integer.'),
+    .isUUID()
+    .withMessage('patientId in URL must be a valid UUID.'),
 ];
 
 export const listProceduresQueryValidator = [
   query('patientId')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('patientId query parameter must be a positive integer.'),
+    .isUUID()
+    .withMessage('patientId query parameter must be a valid UUID.'),
 
   query('status')
     .optional()
