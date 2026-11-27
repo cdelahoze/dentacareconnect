@@ -17,4 +17,8 @@ export const env = {
   CRON_SCHEDULE: process.env.CRON_SCHEDULE || '0 0 * * *',
   REMINDER_WINDOW_DAYS: parsePositiveInt(process.env.REMINDER_WINDOW_DAYS, 7),
   CRON_TIMEZONE: process.env.CRON_TIMEZONE || undefined,
+  EMAIL_PROVIDER: (process.env.EMAIL_PROVIDER || 'resend').toLowerCase(),
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'DentaCare Connect <onboarding@resend.dev>',
+  APP_BASE_URL: process.env.APP_BASE_URL || 'http://localhost:3000',
 };

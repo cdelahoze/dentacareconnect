@@ -12,6 +12,8 @@ import {
   QueueQueryFilters,
   reminderQueueInclude,
 } from '../types/controlEngine.types';
+import { EmailDispatchBatchResult, EmailDispatchOptions } from '../types/email.types';
+import { EmailDispatchService } from './emailDispatch.service';
 import {
   addDays,
   buildBookingUrl,
@@ -188,6 +190,11 @@ export class ControlEngineService {
       byChannel[entry.channel] += 1;
     }
 
+    const emailDispatch = await this.dispatchPendingEmailReminders({
+      referenceDate,
+      dryRun,
+    });
+
     const completedAt = new Date();
     const durationMs = Date.now() - startTimeMs;
 
@@ -208,7 +215,17 @@ export class ControlEngineService {
         byChannel,
       },
       queue,
+      emailDispatch,
     };
+  }
+
+  /**
+   * TSK-306: Dispatch pending EMAIL channel reminders via EmailDispatchService.
+   */
+  static async dispatchPendingEmailReminders(
+    options: EmailDispatchOptions = {}
+  ): Promise<EmailDispatchBatchResult> {
+    return EmailDispatchService.dispatchPendingEmailReminders(options);
   }
 
   /**
